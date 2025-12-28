@@ -1,0 +1,8 @@
+{
+  "name": "NovaEngel API Product Manager",
+  "description": "A high-end dashboard to manage product exports from the NovaEngel DropShipping API, featuring automated PHP script generation and real-time formatting preview.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
