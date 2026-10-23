@@ -104,8 +104,8 @@ const ConfigView: React.FC<Props> = ({ config, setConfig }) => {
             <div className="space-y-4">
               <input type="text" name="apiBaseUrl" value={config.apiBaseUrl} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="API Base URL" />
               <div className="grid grid-cols-2 gap-4">
-                <input type="text" name="apiUser" value={config.apiUser} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="User" />
-                <input type="password" name="apiPass" value={config.apiPass} onChange={handleChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="Password" />
+                <p className="text-xs text-slate-500">Impostare NOVA_API_USER sul server.</p>
+                <p className="text-xs text-slate-500">Impostare NOVA_API_PASSWORD sul server.</p>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Proxy Script URL (bypass CORS)</label>
