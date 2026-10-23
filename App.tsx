@@ -68,8 +68,8 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<AppConfig>(() => {
     const saved = localStorage.getItem('nova_config');
     const baseConfig = {
-      apiUser: "info@notelseit.beauty",
-      apiPass: "F@nculo2025!?",
+      apiUser: "",
+      apiPass: "",
       apiBaseUrl: "https://drop.novaengel.com/api",
       proxyUrl: "", // Vuoto di default, da compilare in Configurazione
       saveDir: "/www/wwwroot/notelseit.beauty/novaengel/order/",
@@ -100,11 +100,14 @@ const App: React.FC = () => {
       filterSubcategories: [],
       customProfiles: []
     };
-    return saved ? JSON.parse(saved) : baseConfig;
+    if (!saved) return baseConfig;
+    try { const previous = JSON.parse(saved); return { ...baseConfig, ...previous, apiUser: '', apiPass: '' }; }
+    catch { return baseConfig; }
   });
 
   useEffect(() => {
-    localStorage.setItem('nova_config', JSON.stringify(config));
+    const { apiUser, apiPass, ...safeConfig } = config;
+    localStorage.setItem('nova_config', JSON.stringify(safeConfig));
   }, [config]);
 
   return (

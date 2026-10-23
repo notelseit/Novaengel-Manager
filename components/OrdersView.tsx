@@ -18,6 +18,7 @@ const OrdersView: React.FC<Props> = ({ config }) => {
   const [isSending, setIsSending] = useState(false);
   const [logs, setLogs] = useState<{msg: string, type: 'info' | 'success' | 'error'}[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const [proxyToken, setProxyToken] = useState('');
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [dateRange, setDateRange] = useState({
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -48,17 +49,15 @@ const OrdersView: React.FC<Props> = ({ config }) => {
     }
 
     try {
+      if (!proxyToken) { addLog('Token proxy richiesto', 'error'); return null; }
       const response = await fetch(config.proxyUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${proxyToken}` },
         body: JSON.stringify({
           proxy_action: 'api_call',
           endpoint: endpoint,
           method: method,
-          payload: body,
-          // Le credenziali sono caricate dal PHP dal config.php, ma possiamo inviarle per sicurezza
-          user: config.apiUser,
-          password: config.apiPass
+          payload: body
         })
       });
 
@@ -125,12 +124,13 @@ const OrdersView: React.FC<Props> = ({ config }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+      <div className="mb-4"><label className="block text-xs font-semibold mb-1">Token di accesso al proxy (solo in memoria)</label><input type="password" autoComplete="off" value={proxyToken} onChange={e => setProxyToken(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2" placeholder="Token proxy configurato sul server" /></div>
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Centro Ordini NovaEngel</h2>
           <p className="text-slate-500 text-sm flex items-center">
             {config.proxyUrl ? (
-              <span className="text-emerald-600 font-bold flex items-center"><CheckCircle className="w-3.5 h-3.5 mr-1" /> Connesso via Proxy ({config.apiUser})</span>
+              <span className="text-emerald-600 font-bold flex items-center"><CheckCircle className="w-3.5 h-3.5 mr-1" /> Proxy configurato</span>
             ) : (
               <span className="text-rose-500 font-bold flex items-center"><ShieldAlert className="w-3.5 h-3.5 mr-1" /> Configura Proxy URL per iniziare</span>
             )}
