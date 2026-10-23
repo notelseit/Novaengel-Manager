@@ -45,8 +45,8 @@ const PhpScriptView: React.FC<Props> = ({ config }) => {
    1. CREDENZIALI API & PROXY
    ========================================================================== */
 define("API_BASE_URL", "${config.apiBaseUrl}");
-define("API_USER", "${config.apiUser}");
-define("API_PASSWORD", "${config.apiPass}");
+define("API_USER", getenv("NOVA_API_USER") ?: "");
+define("API_PASSWORD", getenv("NOVA_API_PASSWORD") ?: "");
 define("PROXY_URL", "${config.proxyUrl}");
 define("API_LANGUAGE", "${config.exportLanguage}");
 
@@ -108,19 +108,39 @@ define("FILTER_SUBCATEGORIES", ${toPhpArray(config.filterSubcategories)});
 require_once __DIR__ . '/config.php';
 
 // Gestione Headers CORS per Dashboard React
-header("Access-Control-Allow-Origin: *");
+$allowedOrigin = getenv("NOVA_ALLOWED_ORIGIN") ?: "";
+$origin = $_SERVER["HTTP_ORIGIN"] ?? "";
+if ($allowedOrigin !== "" && $origin === $allowedOrigin) {
+    header("Access-Control-Allow-Origin: " . $allowedOrigin);
+    header("Vary: Origin");
+}
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    if ($allowedOrigin === "" || $origin !== $allowedOrigin) { http_response_code(403); exit; }
     http_response_code(200);
     exit;
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
 
+$proxySecret = getenv('NOVA_PROXY_TOKEN') ?: '';
+$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+if ($proxySecret === '' || !hash_equals('Bearer ' . $proxySecret, $authHeader)) {
+    header('Content-Type: application/json', true, 401);
+    echo json_encode(['error' => 'Accesso non autorizzato']);
+    exit;
+}
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit; }
+if (!is_array($input)) { http_response_code(400); exit; }
 // Modalità Proxy per richieste dalla Dashboard
 if (isset($input['proxy_action']) && $input['proxy_action'] === 'api_call') {
+    $routes = ['/orders/list' => ['GET'], '/orders/create' => ['POST']];
+    $endpoint = $input['endpoint'] ?? '';
+    $method = $input['method'] ?? '';
+    if (!isset($routes[$endpoint]) || !in_array($method, $routes[$endpoint], true)) { http_response_code(403); exit; }
+    if (API_USER === '' || API_PASSWORD === '') { http_response_code(503); exit; }
     // 1. Autenticazione Server-Side per ottenere il Token
     $ch = curl_init(API_BASE_URL . "/login");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -130,7 +150,8 @@ if (isset($input['proxy_action']) && $input['proxy_action'] === 'api_call') {
         "password" => API_PASSWORD
     ]));
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     $authResponse = curl_exec($ch);
     $authData = json_decode($authResponse, true);
     $token = $authData['Token'] ?? null;
@@ -143,14 +164,15 @@ if (isset($input['proxy_action']) && $input['proxy_action'] === 'api_call') {
     }
 
     // 2. Esecuzione Chiamata API con Token
-    $url = API_BASE_URL . $input['endpoint'] . '/' . $token;
+    $url = API_BASE_URL . $endpoint . '/' . rawurlencode($token);
     if ($input['method'] === 'GET' && isset($input['payload'])) {
         $url .= '?' . http_build_query($input['payload']);
     }
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     
     if ($input['method'] === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
@@ -162,7 +184,7 @@ if (isset($input['proxy_action']) && $input['proxy_action'] === 'api_call') {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    header('Content-Type: application/json', true, $httpCode);
+    header('Content-Type: application/json', true, $httpCode >= 100 && $httpCode <= 599 ? $httpCode : 502);
     echo $apiResponse;
     exit;
 }
